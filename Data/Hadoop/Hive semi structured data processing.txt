@@ -1,0 +1,120 @@
+XML DATA
+raw data:
+
+<rec><name>hari</name><age>25</age><gender>m</gender><sal>10000</sal><dept>hadoop</dept></rec>
+<rec><name>ramu</name><age>24</age><gender>m</gender><sal>11000</sal><dept>hadoop</dept></rec>
+<rec><name>lasya</name><age>22</age><gender>f</gender><sal>10000</sal><dept>hadoop</dept></rec>
+<rec><name>ramya</name><age>23</age><gender>f</gender><sal>12000</sal><dept>hadoop</dept></rec>
+<rec><name>navya</name><age>22</age><gender>f</gender><sal>13000</sal><dept>dotnet</dept></rec>
+<rec><name>lahari</name><age>24</age><gender>f</gender><sal>10000</sal><dept>dotnet</dept></rec>
+<rec><name>shankar</name><age>25</age><gender>m</gender><sal>11000</sal><dept>dotnet</dept></rec>
+<rec><name>rahul</name><age>23</age><gender>m</gender><sal>12000</sal><dept>dotnet</dept></rec>
+<rec><name>aiysha</name><age>24</age><gender>f</gender><sal>13000</sal><dept>hadoop</dept></rec>
+<rec><name>dinesh</name><age>25</age><gender>m</gender><sal>15000</sal><dept>hadoop</dept></rec>
+
+create table xml_raw(line string);
+load data local inpath 'xml' into table xml_raw;
+select * from xml_raw;
+
+create table xml_data(name string, age int, gender string, sal int, dept string);  
+
+insert overwrite table xml_data                                                  
+    > select xpath_string(line,'rec/name'),xpath_int(line,'rec/age'),xpath_string(line,'rec/gender'),
+    > xpath_int(line,'rec/sal'),xpath_string(line,'rec/dept') from xml_raw;  
+
+select * from xml_data;
+
+JSON DATA
+raw data:
+
+{"name":"sravan","age":22,"gender":"m","sal":20000,"city":"hyd"}
+{"name":"bhavya","age":23,"gender":"f","sal":25000,"city":"hyd"}
+{"name":"mahesh","age":25,"gender":"m","sal":28000,"city":"hyd"}
+{"name":"nidhi","age":22,"gender":"f","sal":26000,"city":"del"}
+{"name":"manoj","age":25,"gender":"m","sal":20000,"city":"del"}
+{"name":"nooren","age":23,"gender":"f","sal":19000,"city":"del"}
+{"name":"ismial","age":25,"gender":"m","sal":25000,"city":"del"}
+{"name":"marry","age":22,"gender":"f","sal":20000,"city":"bng"}
+{"name":"joseph","age":24,"gender":"m","sal":26000,"city":"bng"}
+{"name":"lissa","age":22,"gender":"f","sal":22000,"city":"bng"}
+
+create table json_raw(line string);
+load data local inpath 'json' into table json_raw;
+select * from json_raw;
+
+create table json_data(name string, age int, gender string, sal int, city string);
+
+insert overwrite table json_data                                                                      
+    > select get_json_object(line,'$.name'),get_json_object(line,'$.age'),get_json_object(line,'$.gender'),
+    > get_json_object(line,'$.sal'),get_json_object(line,'$.city') from json_raw;      
+
+select * from json_data;
+
+method2:
+
+create table json_data1 like json_data;
+
+insert overwrite table json_data1                                                                                         
+    > select x.* from json_raw lateral view json_tuple(line,'name','age','gender','sal','city') x as name, age, gender,sal,city;
+
+select * from json_dat1;
+
+URL DATA
+raw data:
+
+http://google.com/page1/service1?book_name=hadoop&cost=200&author=apache&version=1
+http://google.com/page1/service1?book_name=hadoop&cost=250&author=apache&version=2
+http://google.com/page1/service1?book_name=dotnet&cost=150&author=microsoft&version=1
+http://google.com/page1/service1?book_name=dotnet&cost=180&author=microsoft&version=2
+http://google.com/page1/service1?book_name=dotnet&cost=200&author=apache&version=2.1
+http://google.com/page1/service1?book_name=java&cost=300&author=sunmicrosystems&version=1
+http://google.com/page1/service1?book_name=java&cost=350&author=sunmicrosystems&version=2
+http://google.com/page1/service1?book_name=java&cost=300&author=oracle&version=1
+http://google.com/page1/service1?book_name=java&cost=300&author=oracle&version=1.1
+http://google.com/page1/service1?book_name=java&cost=350&author=oracle&version=1.2
+
+
+create table url_raw(line string);
+load data local inpath 'url' into table url_raw;
+select * from url_raw;
+
+create table url_raw1(host string,path string,query string);
+
+insert overwrite table url_raw1
+    > select parse_url(line,'HOST'),parse_url(line,'PATH'),parse_url(line,'QUERY') from url_raw;
+
+select * form url_raw1;
+
+create table url_data (host string, page string, service string,query map <string,string>);
+insert overwrite table url_data 
+    > select host, split(path,"/")[1],split(path,"/")[2],str_to_map(query,"&","=") from url_raw1;
+select * from url_data;
+
+create table url_data1(host string, page string, service string, aname string,bname string, cost int, version float);
+insert overwrite table url_data1                                                                                         
+    > select host, page,service,query['author'],query['book_name'],query['cost'],cast(query['version'] as float) from url_data;
+select * from url_data1;
+
+
+Multi table insertion
+
+create table multi(id int, name string,age int,gender string,doj string,deptid string,deptnamestring,
+    > city string,area string,block string,emailid string, phno bigint)
+    > row format delimited fields terminated by ',';
+
+load data local inpath 'multi' into table multi;
+
+create four destination tables:
+
+create table emp_basic(id int, name string, age int, gneder string, doj string);
+create table emp_dept(id int, deptno string, deptname string);
+create table emp_address(id int, area string, block string); 
+create table emp_contact(id int, emailid string,phone bigint);
+
+multi insertions:
+
+from multi                                                    
+    > insert overwrite table emp_basic select id,name,age,gender,doj
+    > insert overwrite table emp_dept select id,deptid,deptname
+    > insert overwrite table emp_address select id,area,block
+    > insert overwrite table emp_contact select id,emailid,phno;
