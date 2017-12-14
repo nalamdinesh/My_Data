@@ -1,0 +1,32 @@
+truncate table ${hivevar:TARGET_DB_NAME}.WLT_CHN_REGN_RPT_CHN2;
+
+
+
+SET hive.exec.dynamic.partition.mode=nonstrict;
+SET mapreduce.job.queuename=root.ingest;
+SET hive.exec.compress.output=true;
+SET mapred.output.compression.type=BLOCK;
+SET hive.exec.max.dynamic.partitions=100000;
+SET hive.exec.max.dynamic.partitions.pernode=10000;
+SET parquet.block.size=268435456;
+SET dfs.block.size=268435456;
+SET mapreduce.reduce.memory.mb=4096;
+SET mapreduce.reduce.java.opts=-Xmx3482m;
+SET parquet.compression=SNAPPY;
+SET hive.exec.dynamic.partition=true;
+SET mapred.max.split.size=268435456;
+SET mapreduce.map.java.opts=-Xmx15g;
+SET mapreduce.map.memory.mb=20000;
+SET mapred.output.compression.codec=org.apache.hadoop.io.compress.SnappyCodec;
+SET mapreduce.input.fileinputformat.split.minsize=134217728;
+SET mapreduce.input.fileinputformat.split.maxsize=268435456;
+SET mapreduce.task.io.sort.mb=400;
+SET hive.merge.mapfiles=true;
+SET hive.merge.mapredfiles=true;
+SET hive.merge.size.per.task=268435456;
+SET hive.merge.smallfiles.avgsize=134217728;
+use ${hivevar:TARGET_DB_NAME};
+insert into table ${hivevar:TARGET_DB_NAME}.WLT_CHN_REGN_RPT_CHN2
+SELECT *
+FROM ${hivevar:TARGET_WT_DB_NAME}.WT_WLT_CHN_REGN_RPT_CHN2
+;

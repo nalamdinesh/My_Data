@@ -1,0 +1,36 @@
+SET hive.exec.dynamic.partition.mode=nonstrict;
+SET mapreduce.job.queuename=root.ingest;
+SET hive.exec.compress.output=true;
+SET mapred.output.compression.type=BLOCK;
+SET hive.exec.max.dynamic.partitions=100000;
+SET hive.exec.max.dynamic.partitions.pernode=10000;
+SET parquet.block.size=268435456;
+SET dfs.block.size=268435456;
+SET mapreduce.reduce.memory.mb=4096;
+SET mapreduce.reduce.java.opts=-Xmx3482m;
+SET parquet.compression=SNAPPY;
+SET hive.exec.dynamic.partition=true;
+SET mapred.max.split.size=268435456;
+SET mapreduce.map.java.opts=-Xmx15g;
+SET mapreduce.map.memory.mb=20000;
+SET mapred.output.compression.codec=org.apache.hadoop.io.compress.SnappyCodec;
+SET mapreduce.input.fileinputformat.split.minsize=134217728;
+SET mapreduce.input.fileinputformat.split.maxsize=268435456;
+SET mapreduce.task.io.sort.mb=400;
+SET hive.merge.mapfiles=true;
+SET hive.merge.mapredfiles=true;
+SET hive.merge.size.per.task=268435456;
+SET hive.merge.smallfiles.avgsize=134217728;
+use ${hivevar:TARGET_WT_DB_NAME};
+insert into table ${hivevar:TARGET_WT_DB_NAME}.WT_WLT_CHN_REGN_RPT_CHN2
+SELECT T1.date_processed AS SNAPSHOT_DATE,
+--        T1.CUSTOMER_ID AS CUSTOMER_ID,
+        CONCAT(substr(T1.CUSTOMER_ID,1,1),'-',substr(T1.CUSTOMER_ID,2,9)) AS CUSTOMER_ID,
+        T1.CARD_PAN AS CARD_PAN,
+        T1.METHOD_TYPE_LIST AS METHOD_TYPE_LIST,
+        T1.WALLET AS WALLET,
+     CONCAT(substr (T1.TIMESTAMP,1,10),' ',substr (T1.TIMESTAMP,12,8))
+        AS REGISTRATION_DATE_TIME               
+FROM ${hivevar:REGN_METH_DB_NAME}.${hivevar:REGN_METH_TABLE} T1
+where regexp_replace('${hivevar:PARTITION_DATE}','-','') = regexp_replace(T1.date_processed,'-','')
+;

@@ -1,0 +1,264 @@
+<!-- *********************************************************************** -->
+<!-- Workflow for "Registration Status" has 4 steps							 -->
+<!-- *************************** Modification Details ********************** -->
+<!-- 08/08/16 === Nisith Nanda === Initial working version 					 -->
+<!-- *********************************************************************** -->
+<workflow-app name="DORMANT_APP_PAY_CUSTS_Workflow"
+	xmlns="uri:oozie:workflow:0.5">
+	<global>
+		<job-tracker>${JOB_TRACKER}</job-tracker>
+		<name-node>${NAME_NODE}</name-node>
+		<configuration>
+			<property>
+				<name>mapreduce.job.queuename</name>
+				<value>${QUEUE_NAME}</value>
+			</property>
+			<property>
+                    <name>hive.exec.dynamic.partition.mode</name>
+                    <value>nonstrict</value>
+                </property>
+				<property>
+				<name>hive.exec.compress.output</name>
+				<value>true</value>
+			</property>
+			<property>
+                    <name>mapred.output.compression.type</name>
+                    <value>BLOCK</value>
+                </property>
+				<property>
+                    <name>hive.exec.max.dynamic.partitions</name>
+                    <value>100000</value>
+                </property>
+				<property>
+				<name>hive.exec.max.dynamic.partitions.pernode</name>
+				<value>10000</value>
+			</property>
+			<property>
+                    <name>parquet.block.size</name>
+                    <value>268435456</value>
+                </property>
+				
+				<property>
+                    <name>dfs.block.size</name>
+                    <value>268435456</value>
+                </property>
+				<property>
+                    <name>mapreduce.reduce.memory.mb</name>
+                    <value>4096</value>
+                </property>
+				<property>
+                    <name>mapreduce.reduce.java.opts</name>
+                    <value>-Xmx3482m</value>
+                </property>
+				<property>
+                    <name>parquet.compression</name>
+                    <value>SNAPPY</value>
+                </property>
+				<property>
+                    <name>hive.exec.dynamic.partition</name>
+                    <value>true</value>
+                </property>
+				<property>
+                    <name>mapred.max.split.size</name>
+                    <value>268435456</value>
+                </property>
+				<property>
+                    <name>mapreduce.map.java.opts</name>
+                    <value>-Xmx15g</value>
+                </property>
+				<property>
+                    <name>mapreduce.map.memory.mb</name>
+                    <value>20000</value>
+                </property>
+				
+			<property>
+                    <name>mapred.output.compression.codec</name>
+                    <value>org.apache.hadoop.io.compress.SnappyCodec</value>
+                </property>
+				<property>
+                    <name>mapreduce.input.fileinputformat.split.minsize</name>
+                    <value>134217728</value>
+                </property>
+				<property>
+                    <name>mapreduce.input.fileinputformat.split.maxsize</name>
+                    <value>268435456</value>
+                </property>
+				<property>
+                    <name>mapreduce.task.io.sort.mb</name>
+                    <value>400</value>
+                </property>
+				<property>
+                    <name>hive.merge.mapfiles</name>
+                    <value>true</value>
+                </property>
+				<property>
+                    <name>hive.merge.mapredfiles</name>
+                    <value>true</value>
+                </property>
+				<property>
+                    <name>hive.merge.size.per.task</name>
+                    <value>268435456</value>
+                </property>
+				<property>
+                    <name>hive.merge.smallfiles.avgsize</name>
+                    <value>134217728</value>
+                </property>
+		</configuration>
+	</global>
+	<credentials>
+		<credential name="hive2" type="hive2">
+			<property>
+				<name>hive2.jdbc.url</name>
+				<value>${HIVE_JDBC_URL}</value>
+			</property>
+			<property>
+				<name>hive2.server.principal</name>
+				<value>${HIVE_SERVER_PRINCIPAL}</value>
+			</property>
+		</credential>
+	</credentials>
+	<start to="verifyPartitions" />
+	<kill name="Kill">
+		<message>Action failed, error
+			message[${wf:errorMessage(wf:lastErrorNode())}]
+		</message>
+	</kill>
+	<action name='verifyPartitions'>
+		<shell xmlns="uri:oozie:shell-action:0.3">
+			<configuration>
+				<property>
+					<name>oozie.launcher.mapred.job.queue.name</name>
+					<value>${QUEUE_NAME}</value>
+				</property>
+			</configuration>
+			<exec>verifyPartitions.sh</exec>
+			<argument>${Dormant_App_Pay_Cust_TableList}</argument>
+			<argument>${PARTITIONED_DATE}</argument>
+			<env-var>keyTabFileName=${keyTabFileName}</env-var>
+			<env-var>keyTabUser=${keyTabUser}</env-var>
+			<env-var>jdbcURL=${HIVE_JDBC_URL}</env-var>
+			<env-var>serverPrinicipal=${HIVE_SERVER_PRINCIPAL}</env-var>
+			<env-var>partitionCheck=${Dormant_App_Pay_Cust_partitionCheck}</env-var>
+			<file>${SCRIPT_PATH}${verifyPartitionShell}#verifyPartitions.sh</file>
+			<file>${keyTabFilePath}${keyTabFileName}#${keyTabFileName}</file>
+			<capture-output />
+		</shell>
+		<ok to="executeScript" />
+		<error to="ErrorNotification" />
+	</action>
+	<decision name="executeScript">
+		<switch>
+			<case to="WLT_DORMANT_APP_PAY_CUSTS_MI6112_1">
+				${wf:actionData("verifyPartitions")['CHECK'] eq
+				'SUCCESS'}
+			</case>
+			<case to="warningEmail">
+				${wf:actionData("verifyPartitions")['CHECK'] eq
+				'FAILED'}
+			</case>
+			<default to="End" />
+		</switch>
+	</decision>
+	<action name="WLT_DORMANT_APP_PAY_CUSTS_MI6112_1" cred="hive2">
+		<hive2 xmlns="uri:oozie:hive2-action:0.2">
+			 <jdbc-url>${HIVE_JDBC_URL}</jdbc-url>
+			<script>${SCRIPT_PATH}${WLT_DORMANT_APP_PAY_CUSTS_MI6112_1_SCRIPT}</script>
+			<param>TARGET_WT_DB_NAME=${TARGET_WT_DB_NAME}</param>
+			<param>TARGET_DB_NAME=${TARGET_DB_NAME}</param>
+		</hive2>
+		<ok to="WLT_DORMANT_APP_PAY_CUSTS_MI6112_2" />
+		<error to="ErrorNotification" />
+	</action>
+	<action name="WLT_DORMANT_APP_PAY_CUSTS_MI6112_2" cred="hive2">
+		<hive2 xmlns="uri:oozie:hive2-action:0.2">
+			 <jdbc-url>${HIVE_JDBC_URL}</jdbc-url>
+			<script>${SCRIPT_PATH}${WLT_DORMANT_APP_PAY_CUSTS_MI6112_2_SCRIPT}</script>
+			<param>TARGET_WT_DB_NAME=${TARGET_WT_DB_NAME}</param>
+			<param>TARGET_DB_NAME=${TARGET_DB_NAME}</param>
+			<param>REL_PAN_VIR_FIS_DB_NAME=${REL_PAN_VIR_FIS_DB_NAME}</param>
+			<param>REL_PAN_VIR_FIS_TABLE=${REL_PAN_VIR_FIS_TABLE}</param>
+			<param>PARTITION_DATE=${PARTITIONED_DATE}</param>
+		</hive2>
+		<ok to="WLT_DORMANT_APP_PAY_CUSTS_MI6112_Final" />
+		<error to="ErrorNotification" />
+	</action>
+	<action name="WLT_DORMANT_APP_PAY_CUSTS_MI6112_Final" cred="hive2">
+		<hive2 xmlns="uri:oozie:hive2-action:0.2">
+			<jdbc-url>${HIVE_JDBC_URL}</jdbc-url>
+			<script>${SCRIPT_PATH}${WLT_DORMANT_APP_PAY_CUSTS_MI6112_Final_SCRIPT}</script>
+			<param>TARGET_WT_DB_NAME=${TARGET_WT_DB_NAME}</param>
+			<param>TARGET_DB_NAME=${TARGET_DB_NAME}</param>
+		</hive2>
+		<ok to="SuccessNotification" />
+		<error to="ErrorNotification" />
+	</action>
+	<action name="SuccessNotification">
+		<email xmlns="uri:oozie:email-action:0.2">
+			<to>${emailsSuccess}</to>
+			<subject>${ENV} :: SUCCESS :: ${wf:name()} 
+			</subject>
+			<body>
+				Hi,
+
+				Job run was successful with details as below:
+				Job name: ${wf:name()}
+				Job Id: ${wf:id()}
+				Order Date: ${PARTITIONED_DATE}
+
+
+				Thanks.
+				Analytics Team
+			</body>
+		</email>
+		<ok to="End" />
+		<error to="Kill" />
+	</action>
+    <action name="ErrorNotification">
+		<email xmlns="uri:oozie:email-action:0.2">
+			<to>${emailsFailure}</to>
+			<subject>${ENV} :: ERROR :: ${wf:name()} </subject>
+			<body>
+                Hi,
+				
+                Job failed with details as below:${wf:errorMessage(wf:lastErrorNode())}
+	Job name: ${wf:name()}
+                Job Id: ${wf:id()}
+                Order Date: ${PARTITIONED_DATE}
+                Debug INFO: External Id of error out Action = ${wf:actionExternalId(wf:lastErrorNode())}
+                URI for error out Action = ${wf:actionTrackerUri(wf:lastErrorNode())}
+                Status = ${wf:actionExternalStatus(wf:lastErrorNode())}
+                User = ${wf:user()}
+                Error Node = ${wf:lastErrorNode()}
+                Error Code = ${wf:errorCode(wf:lastErrorNode())}
+				
+                Thanks.
+                Analytics Team
+            </body>
+		</email>
+		<ok to="Kill" />
+		<error to="Kill" />
+	</action>
+   <action name="warningEmail">
+		<email xmlns="uri:oozie:email-action:0.2">
+			<to>${emailWarning}</to>
+			<subject>${ENV} :: WARNING :: ${wf:name()} :: No rows inserted into table - WLT_DORMANT_APP_PAY_CUSTS_MI6112.
+			</subject>
+			<body>
+				Hi,
+
+				No rows inserted into table - WLT_DORMANT_APP_PAY_CUSTS_MI6112 due to no new partition in table REL_PAN_VIR_FIS_PARTITIONS:
+				Job name: ${wf:name()}
+				Job Id: ${wf:id()}
+				Order Date: ${PARTITIONED_DATE}
+				Partition Details:
+				${wf:actionData("verifyPartitions")['RESULT']}				
+
+				Thanks.
+				Analytics Team
+			</body>
+		</email>
+		<ok to="End" />
+		<error to="Kill" />
+	</action>
+	<end name="End" />
+</workflow-app>
